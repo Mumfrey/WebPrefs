@@ -7,17 +7,17 @@ import java.util.Set;
 
 public interface IWebPreferencesRequest extends Serializable
 {
-	public abstract IWebPreferencesServiceDelegate getDelegate();
+    public abstract IWebPreferencesServiceDelegate getDelegate();
+    
+    public abstract boolean isValidationRequired();
+    
+    public abstract URI getRequestURI();
 
-	public abstract boolean isValidationRequired();
+    public abstract String getUUID();
 
-	public abstract URI getRequestURI();
-	
-	public abstract String getUUID();
-	
-	public abstract Set<String> getKeys();
+    public abstract Set<String> getKeys();
+    
+    public abstract Map<String, String> getPostVars();
 
-	public abstract Map<String, String> getPostVars();
-	
-	public abstract void onReceivedResponse(IWebPreferencesResponse response);
+    public abstract void onReceivedResponse(IWebPreferencesResponse response);
 }

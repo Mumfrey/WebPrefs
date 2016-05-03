@@ -9,48 +9,48 @@ import com.mumfrey.webprefs.interfaces.IWebPreferencesServiceDelegate;
 
 abstract class WebPreferencesServiceTask implements IWebPreferencesServiceDelegate
 {
-	private final IWebPreferencesProvider provider;
-	
-	private final IWebPreferencesClient client;
-	
-	private IWebPreferencesRequest request;
+    private final IWebPreferencesProvider provider;
 
-	WebPreferencesServiceTask(IWebPreferencesProvider provider, IWebPreferencesClient client)
-	{
-		this.provider = provider;
-		this.client = client;
-	}
+    private final IWebPreferencesClient client;
 
-	public IWebPreferencesClient getClient()
-	{
-		return this.client;
-	}
-	
-	public IWebPreferencesRequest getRequest()
-	{
-		return this.request;
-	}
-	
-	public void setRequest(IWebPreferencesRequest request)
-	{
-		this.request = request;
-	}
+    private IWebPreferencesRequest request;
+    
+    WebPreferencesServiceTask(IWebPreferencesProvider provider, IWebPreferencesClient client)
+    {
+        this.provider = provider;
+        this.client = client;
+    }
+    
+    public IWebPreferencesClient getClient()
+    {
+        return this.client;
+    }
 
-	@Override
-	public String getHostName()
-	{
-		return this.provider.getHostName();
-	}
+    public IWebPreferencesRequest getRequest()
+    {
+        return this.request;
+    }
 
-	@Override
-	public Session getSession()
-	{
-		return this.provider.getSession();
-	}
-	
-	@Override
-	public String toString()
-	{
-		return String.format("%s[%s]", this.getClass().getSimpleName(), this.request);
-	}
+    public void setRequest(IWebPreferencesRequest request)
+    {
+        this.request = request;
+    }
+    
+    @Override
+    public String getHostName()
+    {
+        return this.provider.getHostName();
+    }
+    
+    @Override
+    public Session getSession()
+    {
+        return this.provider.getSession();
+    }
+
+    @Override
+    public String toString()
+    {
+        return String.format("%s[%s]", this.getClass().getSimpleName(), this.request);
+    }
 }
