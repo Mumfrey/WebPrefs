@@ -2,6 +2,8 @@ package com.mumfrey.webprefs;
 
 import java.io.File;
 import java.net.Proxy;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
@@ -11,6 +13,16 @@ import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import com.mojang.authlib.GameProfile;
+import com.mojang.realmsclient.dto.RealmsServer;
+import com.mumfrey.liteloader.JoinGameListener;
+import com.mumfrey.liteloader.Tickable;
+import com.mumfrey.liteloader.core.LiteLoader;
+import com.mumfrey.webprefs.exceptions.InvalidServiceException;
+import com.mumfrey.webprefs.exceptions.InvalidUUIDException;
+import com.mumfrey.webprefs.framework.WebPreferencesProvider;
+import com.mumfrey.webprefs.interfaces.IWebPreferences;
+
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ServerData;
 import net.minecraft.entity.player.EntityPlayer;
@@ -18,18 +30,14 @@ import net.minecraft.network.INetHandler;
 import net.minecraft.network.play.server.SPacketJoinGame;
 import net.minecraft.util.Session;
 
-import com.mojang.authlib.GameProfile;
-import com.mojang.realmsclient.dto.RealmsServer;
-import com.mumfrey.liteloader.JoinGameListener;
-import com.mumfrey.liteloader.Tickable;
-import com.mumfrey.liteloader.core.LiteLoader;
-import com.mumfrey.webprefs.exceptions.InvalidUUIDException;
-import com.mumfrey.webprefs.framework.WebPreferencesProvider;
-import com.mumfrey.webprefs.interfaces.IWebPreferences;
-
 /**
- * WebPreferences Manager, maintains the collection of all property sets for
- * each endpoint
+ * WebPreferences Service Manager, acts as a central registry for all web
+ * preference collections. 
+ * 
+ * <p>To access preferences on a service, first request the service using
+ * {@link #get(String)} or {@link #getDefault()}, you can then request
+ * preferences objects from the service by calling the various overloads of
+ * {@link #getPreferences}.</p>
  *
  * @author Adam Mummery-Smith
  */
@@ -167,25 +175,103 @@ public final class WebPreferencesManager
     }
 
     
+    /**
+     * Get a public or private preferences collection for the local player
+     * 
+     * @param privatePrefs true to fetch the player's private preferences, false
+     *      to fetch public preferences 
+     * @return player's preference collection, creates if necessary
+     */
     public IWebPreferences getLocalPreferences(boolean privatePrefs)
     {
         return this.getPreferences(this.session.getPlayerID(), privatePrefs);
     }
+
+    /**
+     * Get a public preferences collection for the specified player.
+     * 
+     * @param player Player to fetch preferences for
+     * @param privatePrefs True to fetch the player's private preferences, false
+     *      to fetch the public preferences
+     * @return Preference collection or <tt>null</tt> if the player's profile
+     *      cannot be retrieved
+     */
+    public IWebPreferences getPreferences(EntityPlayer player)
+    {
+        return this.getPreferences(player, false);
+    }
     
+    /**
+     * Get a public or private preferences collection for the specified player,
+     * note that accessing a private collection for another player is likely
+     * to be prohibited by the service.
+     * 
+     * @param player Player to fetch preferences for
+     * @param privatePrefs True to fetch the player's private preferences, false
+     *      to fetch the public preferences
+     * @return Preference collection or <tt>null</tt> if the player's profile
+     *      cannot be retrieved
+     */
     public IWebPreferences getPreferences(EntityPlayer player, boolean privatePrefs)
     {
         GameProfile gameProfile = player.getGameProfile();
         return gameProfile != null ? this.getPreferences(gameProfile, privatePrefs) : null;
     }
     
-    private IWebPreferences getPreferences(GameProfile gameProfile, boolean privatePrefs)
+    /**
+     * Get a public preferences collection for the specified game profile.
+     * 
+     * @param gameProfile game profile to fetch preferences for 
+     * @return Preference collection or <tt>null</tt> if the supplied profile is
+     *      null
+     */
+    public IWebPreferences getPreferences(GameProfile gameProfile)
     {
-        return this.getPreferences(gameProfile.getId(), privatePrefs);
+        return gameProfile != null ? this.getPreferences(gameProfile, false) : null;
+    }
+    
+    /**
+     * Get a public or private preferences collection for the specified game
+     * profile, note that accessing a private collection for another player is
+     * likely to be prohibited by the service.
+     * 
+     * @param gameProfile game profile to fetch preferences for 
+     * @param privatePrefs True to fetch the player's private preferences, false
+     *      to fetch the public preferences
+     * @return Preference collection or <tt>null</tt> if the supplied profile is
+     *      null
+     */
+    public IWebPreferences getPreferences(GameProfile gameProfile, boolean privatePrefs)
+    {
+        return gameProfile != null ? this.getPreferences(gameProfile.getId(), privatePrefs) : null;
     }
 
-    private IWebPreferences getPreferences(UUID uuid, boolean privatePrefs)
+    /**
+     * Get a public preferences collection for the specified player UUID.
+     * 
+     * @param uuid UUID to fetch preferences for
+     * @return Preference collection or <tt>null</tt> if the supplied UUID is
+     *      null
+     */
+    public IWebPreferences getPreferences(UUID uuid)
     {
-        return this.getPreferences(uuid.toString(), privatePrefs);
+        return uuid != null ? this.getPreferences(uuid, false) : null;
+    }
+
+    /**
+     * Get a public or private preferences collection for the specified player
+     * UUID, note that accessing a private collection for another player is
+     * likely to be prohibited by the service.
+     * 
+     * @param uuid UUID to fetch preferences for
+     * @param privatePrefs True to fetch the player's private preferences, false
+     *      to fetch the public preferences
+     * @return Preference collection or <tt>null</tt> if the supplied UUID is
+     *      null
+     */
+    public IWebPreferences getPreferences(UUID uuid, boolean privatePrefs)
+    {
+        return uuid != null ? this.getPreferences(uuid.toString(), privatePrefs) : null;
     }
     
     public IWebPreferences getPreferences(String uuid, boolean privatePrefs)
@@ -224,13 +310,35 @@ public final class WebPreferencesManager
         return uuid;
     }
 
-    public static WebPreferencesManager getPreferencesManager()
+    /**
+     * Get the default preferences manager (kv.liteloader.com)
+     * 
+     * @return default preferences manager
+     */
+    public static WebPreferencesManager getDefault()
     {
-        return WebPreferencesManager.getPreferencesManager(WebPreferencesManager.DEFAULT_HOSTNAME);
+        return WebPreferencesManager.get(WebPreferencesManager.DEFAULT_HOSTNAME);
     }
     
-    public static WebPreferencesManager getPreferencesManager(String hostName)
+    /**
+     * Get a preferences manager for the specified service hostname
+     * 
+     * @param hostName service hostname (bare hostname only, no protocol)
+     * @return preferences manager
+     * @throws InvalidServiceException if the specified host name is invalid
+     */
+    @SuppressWarnings("unused")
+    public static WebPreferencesManager get(String hostName) throws InvalidServiceException
     {
+        try
+        {
+            new URI(String.format("http://%s/", hostName));
+        }
+        catch (URISyntaxException ex)
+        {
+            throw new InvalidServiceException("The specified service host was not valid: " + hostName, ex);
+        }
+        
         if (WebPreferencesManager.updateDeamon == null)
         {
             WebPreferencesManager.updateDeamon = new WebPreferencesUpdateDeamon();

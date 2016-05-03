@@ -225,9 +225,8 @@ class WebPreferences implements IWebPreferences
             
             if (this.requestedPrefs.size() > 0)
             {
-                // System.err.println("Preferences for " + this.uuid
-                // + " is submitting a request for "
-                // + this.requestedPrefs.size() + " requested preferences");
+                LiteLoaderLogger.debug("Preferences for " + this.uuid + " is submitting a request for "
+                        + this.requestedPrefs.size() + " requested preferences");
                 if (this.provider.requestGet(this.client, this.uuid, new HashSet<String>(this.requestedPrefs), this.isPrivate))
                 {
                     this.requestTimeoutTimer = WebPreferences.REQUEST_TIMEOUT_TICKS;
@@ -363,9 +362,7 @@ class WebPreferences implements IWebPreferences
                     outgoingPrefs.put(key, this.prefs.get(key));
                 }
                 
-                // System.err.println("Preferences for " + this.uuid
-                // + " is submitting a SET for " + outgoingPrefs.size()
-                // + " dirty preferences");
+                LiteLoaderLogger.debug("Preferences for " + this.uuid + " is submitting a SET for " + outgoingPrefs.size() + " dirty preferences");
                 if (this.provider.requestSet(this.client, this.uuid, outgoingPrefs, this.isPrivate))
                 {
                     this.dirtyPrefs.clear();
