@@ -4,6 +4,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
 
@@ -12,11 +13,10 @@ import com.mumfrey.webprefs.exceptions.InvalidKeyException;
 import com.mumfrey.webprefs.exceptions.InvalidValueException;
 import com.mumfrey.webprefs.exceptions.ReadOnlyPreferencesException;
 import com.mumfrey.webprefs.framework.RequestFailureReason;
-import com.mumfrey.webprefs.interfaces.IWebPreferences;
 import com.mumfrey.webprefs.interfaces.IWebPreferencesClient;
 import com.mumfrey.webprefs.interfaces.IWebPreferencesProvider;
 
-class WebPreferences implements IWebPreferences
+class WebPreferences extends AbstractWebPreferences
 {
     /**
      * The update frequency to use when operating normally, this is the
@@ -104,18 +104,6 @@ class WebPreferences implements IWebPreferences
     private final IWebPreferencesClient client;
     
     /**
-     * Our UUID
-     */
-    protected final String uuid;
-    
-    /**
-     * True if we are a private settings set
-     */
-    protected final boolean isPrivate;
-    
-    protected final boolean isReadOnly;
-    
-    /**
      * Current key/value pairs
      */
     protected final Map<String, String> prefs = new ConcurrentHashMap<String, String>();
@@ -149,61 +137,30 @@ class WebPreferences implements IWebPreferences
     private volatile int updateCheckTimer = 1;
     
     protected int requestTimeoutTimer = 0;
+    
+    WebPreferences(IWebPreferencesProvider provider, UUID uuid, boolean isPrivate, boolean isReadOnly)
+    {
+        this(provider, uuid.toString(), isPrivate, isReadOnly);
+    }
 
     WebPreferences(IWebPreferencesProvider provider, String uuid, boolean isPrivate, boolean isReadOnly)
     {
+        super(uuid, isPrivate, isReadOnly);
         this.provider = provider;
-        this.uuid = uuid;
-        this.isPrivate = isPrivate;
-        this.isReadOnly = isReadOnly;
         this.client = new Client();
     }
     
-    /* (non-Javadoc)
-     * @see com.mumfrey.webprefs.interfaces.IWebPreferences#getUUID()
-     */
     @Override
-    public String getUUID()
-    {
-        return this.uuid;
-    }
-    
-    /* (non-Javadoc)
-     * @see com.mumfrey.webprefs.interfaces.IWebPreferences#isPrivate()
-     */
-    @Override
-    public boolean isPrivate()
-    {
-        return this.isPrivate;
-    }
-    
-    /* (non-Javadoc)
-     * @see com.mumfrey.webprefs.interfaces.IWebPreferences#isReadOnly()
-     */
-    @Override
-    public boolean isReadOnly()
-    {
-        return this.isReadOnly;
-    }
-    
     void onTick()
     {
-        if (this.updateCheckTimer > 0)
+        if (this.updateCheckTimer > 0 && --this.updateCheckTimer < 1)
         {
-            this.updateCheckTimer--;
-            if (this.updateCheckTimer < 1)
-            {
-                this.update();
-            }
+            this.update();
         }
         
-        if (this.requestTimeoutTimer > 0)
+        if (this.requestTimeoutTimer > 0 && --this.requestTimeoutTimer < 1)
         {
-            this.requestTimeoutTimer--;
-            if (this.requestTimeoutTimer < 1)
-            {
-                this.handleTimeout();
-            }
+            this.handleTimeout();
         }
     }
     
@@ -449,16 +406,6 @@ class WebPreferences implements IWebPreferences
         }
     }
     
-    /* (non-Javadoc)
-     * @see com.mumfrey.webprefs.interfaces.IWebPreferences
-     *      #remove(java.lang.String)
-     */
-    @Override
-    public void remove(String key)
-    {
-        this.set(key, "");
-    }
-    
     /**
      * Add a key to the current request set, the key will be requested from the
      * server on the next {@link #update()}
@@ -563,7 +510,7 @@ class WebPreferences implements IWebPreferences
     /**
      * @param key
      */
-    protected static final void validateKey(String key)
+    protected static void validateKey(String key)
     {
         if (key == null || !WebPreferences.keyPattern.matcher(key).matches())
         {
@@ -575,7 +522,7 @@ class WebPreferences implements IWebPreferences
      * @param key
      * @param value
      */
-    protected static final void validateKV(String key, String value)
+    protected static void validateKV(String key, String value)
     {
         WebPreferences.validateKey(key);
         

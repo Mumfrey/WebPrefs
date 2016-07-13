@@ -130,7 +130,7 @@ public final class WebPreferencesManager
     /**
      * All preference sets, for iteration purposes
      */
-    private final List<WebPreferences> allPreferences = new LinkedList<WebPreferences>();
+    private final List<AbstractWebPreferences> allPreferences = new LinkedList<AbstractWebPreferences>();
     
     /**
      * All public preference sets, mapped by UUID
@@ -152,7 +152,7 @@ public final class WebPreferencesManager
     {
         this.provider.onTick();
         
-        for (WebPreferences prefs : this.allPreferences)
+        for (AbstractWebPreferences prefs : this.allPreferences)
         {
             try
             {
@@ -164,7 +164,7 @@ public final class WebPreferencesManager
     
     void onJoinGame()
     {
-        for (WebPreferences prefs : this.allPreferences)
+        for (AbstractWebPreferences prefs : this.allPreferences)
         {
             try
             {
@@ -176,7 +176,9 @@ public final class WebPreferencesManager
 
     
     /**
-     * Get a public or private preferences collection for the local player
+     * Get a public or private preferences collection for the local player. If
+     * the game is running in offline mode, a local preference collection is
+     * returned instead.
      * 
      * @param privatePrefs true to fetch the player's private preferences, false
      *      to fetch public preferences 
@@ -184,11 +186,21 @@ public final class WebPreferencesManager
      */
     public IWebPreferences getLocalPreferences(boolean privatePrefs)
     {
-        return this.getPreferences(this.session.getPlayerID(), privatePrefs);
+        try
+        {
+            return this.getPreferences(this.session.getPlayerID(), privatePrefs);
+        }
+        catch (InvalidUUIDException ex)
+        {
+            UUID offlineUUID = EntityPlayer.getOfflineUUID(this.session.getUsername());
+            return this.getOfflinePreferences(offlineUUID, privatePrefs, false, false);
+        }
     }
 
     /**
-     * Get a public preferences collection for the specified player.
+     * Get a public preferences collection for the specified player. If the game
+     * is running in offline mode, a dummy preference collection supporting no
+     * operations is returned instead.
      * 
      * @param player Player to fetch preferences for
      * @param privatePrefs True to fetch the player's private preferences, false
@@ -198,7 +210,16 @@ public final class WebPreferencesManager
      */
     public IWebPreferences getPreferences(EntityPlayer player)
     {
-        return this.getPreferences(player, false);
+        try
+        {
+            return this.getPreferences(player, false);
+        }
+        catch (InvalidUUIDException ex)
+        {
+            String playerName = player.getName();
+            UUID offlineUUID = EntityPlayer.getOfflineUUID(playerName);
+            return this.getOfflinePreferences(offlineUUID, false, false, !playerName.equals(this.session.getUsername()));
+        }
     }
     
     /**
@@ -279,7 +300,6 @@ public final class WebPreferencesManager
         uuid = this.sanitiseUUID(uuid);
         
         Map<String, IWebPreferences> preferences = privatePrefs ? this.preferencesPrivate : this.preferencesPublic;
-        
         IWebPreferences prefs = preferences.get(uuid);
         
         if (prefs == null)
@@ -287,6 +307,24 @@ public final class WebPreferencesManager
             WebPreferences newPrefs = new WebPreferences(this.provider, uuid, privatePrefs, !uuid.equals(this.session.getPlayerID()));
             this.allPreferences.add(newPrefs);
             preferences.put(uuid, newPrefs);
+            prefs = newPrefs;
+        }
+        
+        return prefs;
+    }
+    
+    private IWebPreferences getOfflinePreferences(UUID uuid, boolean privatePrefs, boolean readOnly, boolean dummy)
+    {
+        Map<String, IWebPreferences> preferences = privatePrefs ? this.preferencesPrivate : this.preferencesPublic;
+        IWebPreferences prefs = preferences.get(uuid);
+        
+        if (prefs == null)
+        {
+            AbstractWebPreferences newPrefs = dummy
+                    ? new DummyOfflineWebPreferences(uuid, privatePrefs, readOnly)
+                    : new OfflineWebPreferences(uuid, privatePrefs, readOnly);
+            this.allPreferences.add(newPrefs);
+            preferences.put(uuid.toString(), newPrefs);
             prefs = newPrefs;
         }
         
